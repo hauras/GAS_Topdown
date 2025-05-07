@@ -88,12 +88,12 @@ void AAuraPlayerController::BeginPlay()
 	// 이 시스템을 통해 입력 매핑 컨텍스트를 적용할 수 있음
 	UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer());
 
-	// Subsystem이 유효한지 확인 (nullptr일 경우 실행 중단 → 버그 조기 탐지)
-	check(Subsystem);
-
-	// InputContext를 입력 시스템에 등록하여 해당 입력 매핑을 활성화함
-	// 우선순위 0은 기본 입력으로 설정됨 (숫자가 높을수록 우선됨)
-	Subsystem->AddMappingContext(InputContext, 0);
+	if (Subsystem)
+	{
+		// InputContext를 입력 시스템에 등록하여 해당 입력 매핑을 활성화함
+		// 우선순위 0은 기본 입력으로 설정됨 (숫자가 높을수록 우선됨)
+		Subsystem->AddMappingContext(InputContext, 0);
+	}
 
 	// 마우스 커서를 보이게 설정 (UI 조작 등 필요할 때 필수)
 	bShowMouseCursor = true;

@@ -6,9 +6,9 @@
 
 UAuraAttributeSet::UAuraAttributeSet()
 {
-	InitHealth(100.f); //ATTRIBUTE_ACCESSORS 매크로에 의해 생성되는 함수
+	InitHealth(50.f); //ATTRIBUTE_ACCESSORS 매크로에 의해 생성되는 함수
 	InitMaxHealth(100.f);
-	InitMana(50.f);
+	InitMana(10.f);
 	InitMaxMana(50.f);
 	
 }
