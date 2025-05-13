@@ -2,7 +2,11 @@
 
 
 #include "AbilitySystem/AuraAttributeSet.h"
+
+#include "AbilitySystemBlueprintLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "GameFramework/Character.h"
+#include "GameplayEffectExtension.h"
 
 UAuraAttributeSet::UAuraAttributeSet()
 {
@@ -27,6 +31,101 @@ void UAuraAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimePropert
 
 }
 
+void UAuraAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+{
+	Super::PreAttributeChange(Attribute, NewValue);
+
+	if (Attribute == GetHealthAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxHealth());
+	}
+	
+	if (Attribute == GetManaAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxMana());
+	}
+	
+}
+
+void UAuraAttributeSet::SetEffectProperties(const FGameplayEffectModCallbackData& Data, FEffectProperties& Props) const
+{
+	// Source = 효과를 가한 주체 (예: 공격자)
+    // Target = 효과를 받은 객체 = 이 AttributeSet을 소유한 액터
+
+    // 효과를 가한 주체(Source)에 대한 정보 수집
+
+    // 효과를 가한 주체의 EffectContextHandle을 가져옴 (누가, 어떻게, 어떤 방식으로 이펙트를 유발했는가?)
+    Props.EffectContextHandle = Data.EffectSpec.GetContext();
+
+    // 원래 이펙트를 가한 주체의 ASC (AbilitySystemComponent) 가져오기
+    Props.SourceASC = Props.EffectContextHandle.GetOriginalInstigatorAbilitySystemComponent();
+
+    // SourceASC가 유효하고, 그것의 ActorInfo와 AvatarActor도 유효한 경우
+    if (IsValid(Props.SourceASC) && Props.SourceASC->AbilityActorInfo.IsValid() && Props.SourceASC->AbilityActorInfo->AvatarActor.IsValid())
+    {
+        // AvatarActor는 일반적으로 컨트롤러에 의해 제어되는 Pawn (ex. 캐릭터)
+        Props.SourceAvatarActor = Props.SourceASC->AbilityActorInfo->AvatarActor.Get();
+
+        // PlayerController 가져오기 (직접 연결되어 있으면 사용, 없으면 나중에 Pawn을 통해 얻을 수 있음)
+        Props.SourceController = Props.SourceASC->AbilityActorInfo->PlayerController.Get();
+
+        // 만약 Controller가 없고 AvatarActor는 유효하다면
+        // → Pawn으로 캐스팅해서 거기서 Controller 가져오기
+        if (Props.SourceController == nullptr && Props.SourceAvatarActor != nullptr)
+        {
+            if (const APawn* Pawn = Cast<APawn>(Props.SourceAvatarActor))
+            {
+                Props.SourceController = Pawn->GetController(); // Pawn을 통해 컨트롤러 추적
+            }
+        }
+
+        // 컨트롤러가 유효한 경우, 해당 컨트롤러가 소유한 Pawn → 캐릭터로 캐스팅
+        if (Props.SourceController)
+        {
+            Props.SourceCharacter = Cast<ACharacter>(Props.SourceController->GetPawn());
+            // 이 시점에서 SourceCharacter 사용 가능
+        }
+    }
+
+    // 효과를 받은 대상(Target)에 대한 정보 수집
+
+    // Target의 ASC에서 Actor 정보와 AvatarActor가 유효한 경우
+    if (Data.Target.AbilityActorInfo.IsValid() && Data.Target.AbilityActorInfo->AvatarActor.IsValid())
+    {
+        // 이 AttributeSet을 가진 주체 (즉, 현재 타겟의 아바타 액터)
+        Props.TargetAvatarActor = Data.Target.AbilityActorInfo->AvatarActor.Get();
+
+        // Target의 PlayerController
+        Props.TargetController = Data.Target.AbilityActorInfo->PlayerController.Get();
+
+        // AvatarActor를 캐릭터로 캐스팅
+        Props.TargetCharacter = Cast<ACharacter>(Props.TargetAvatarActor);
+
+        // Target의 ASC 얻기 (블루프린트 라이브러리 활용)
+        Props.TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Props.TargetAvatarActor);
+
+    }
+}
+
+void UAuraAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
+{
+	Super::PostGameplayEffectExecute(Data);
+
+	FEffectProperties Props;
+	SetEffectProperties(Data, Props);
+
+	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
+	{
+		SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
+	}
+
+	if (Data.EvaluatedData.Attribute == GetManaAttribute())
+	{
+		SetMana(FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
+	}
+	
+	
+}
 // 속성이 서버에서 클라이언트로 복제될 때 호출되는 함수
 void UAuraAttributeSet::OnRep_Health(const FGameplayAttributeData& OldHealth) const
 {
@@ -49,3 +148,5 @@ void UAuraAttributeSet::OnRep_MaxMana(const FGameplayAttributeData& OldMaxMana) 
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UAuraAttributeSet, MaxMana, OldMaxMana);
 
 }
+
+
