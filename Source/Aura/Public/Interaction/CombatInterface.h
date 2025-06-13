@@ -15,6 +15,9 @@ class UCombatInterface : public UInterface
 /**
  * 
  */
+
+class UAnimMontage;
+
 class AURA_API ICombatInterface
 {
 	GENERATED_BODY()
@@ -25,4 +28,9 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void UpdateFacingTarget(const FVector& Target);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	UAnimMontage* GetHitReactMontage();
+
+	virtual void Die() =0;
 };
